@@ -13,9 +13,12 @@ const ZOOM      = 2.5
  *   aspectRatio   — width/height of the source image
  *   hoverPos      — { xRatio, yRatio } | null  (shared across all tiles)
  *   onHoverChange — (pos | null) => void
+ *   isActive      — true when the popup is open for this tile
+ *   onTileClick   — (presetId, DOMRect) => void
  */
 export default function GradeTile({
   preset, dataUrl, isLoading, index, aspectRatio, hoverPos, onHoverChange,
+  isActive, onTileClick,
 }) {
   const [isHovered, setIsHovered] = useState(false)
   const imageRef = useRef(null)
@@ -40,6 +43,13 @@ export default function GradeTile({
   const handleMouseLeave = () => {
     setIsHovered(false)
     onHoverChange(null)
+  }
+
+  const handleTileClick = (e) => {
+    // Don't open popup when clicking the download button
+    if (e.target.closest('button')) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    onTileClick?.(preset.id, rect)
   }
 
   // ── Lens ──────────────────────────────────────────────────────────────
@@ -67,8 +77,12 @@ export default function GradeTile({
 
   return (
     <motion.div
-      className="flex flex-col flex-none rounded-xl border border-cinema-border bg-cinema-card"
+      className={[
+        'flex flex-col flex-none rounded-xl border bg-cinema-card cursor-pointer',
+        isActive ? 'border-cinema-amber' : 'border-cinema-border',
+      ].join(' ')}
       style={{ width: tileWidth }}
+      onClick={handleTileClick}
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{

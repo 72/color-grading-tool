@@ -69,12 +69,10 @@ export default function ImageUpload({ onImageLoaded }) {
         transition={{ duration: 0.5, delay: 0.05 }}
       >
         <h1 className="text-4xl font-semibold text-white tracking-tight mb-3">
-          Cinema color in seconds
+          Cinema color
         </h1>
         <p className="text-cinema-muted text-base max-w-md leading-relaxed">
-          Upload any photo and instantly compare{' '}
-          <span className="text-white font-medium">6 cinematic color grades</span> — all
-          processed locally in your browser. Nothing leaves your device.
+          Upload any photo and instantly compare color grading options. Processed locally in your browser. Nothing leaves your device.
         </p>
       </motion.div>
 

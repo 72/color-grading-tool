@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import GradeTile from './GradeTile'
+import GradePopup from './GradePopup'
 import presets from '../data/presets.json'
 import { applyGrade, canvasToDataURL } from '../utils/colorProcessor'
 
 /**
- * Renders the 2×3 comparison grid.
+ * Renders the comparison grid.
  *
  * Props:
  *   sourceCanvas — HTMLCanvasElement with the original image
@@ -13,28 +14,38 @@ import { applyGrade, canvasToDataURL } from '../utils/colorProcessor'
  *   fileName     — original file name (shown in the toolbar)
  */
 export default function GradeGrid({ sourceCanvas, aspectRatio, fileName }) {
-  // Array of { preset, dataUrl } — grows as each grade is computed
   const [tiles, setTiles]             = useState([])
   const [allDone, setAllDone]         = useState(false)
-  const [hoverPos, setHoverPos]       = useState(null) // { xRatio, yRatio } | null
-  const processingRef                 = useRef(false)
+  const [hoverPos, setHoverPos]       = useState(null)
+
+  // ── Popup state ────────────────────────────────────────────────────────────
+  const [activeTileId, setActiveTileId]   = useState(null)
+  const [anchorRect, setAnchorRect]       = useState(null)
+  // overrides: { [presetId]: parameters object }
+  const [overrides, setOverrides]         = useState({})
+  // regraded data-urls for overridden tiles: { [presetId]: dataUrl }
+  const [regraded, setRegraded]           = useState({})
+
+  const processingRef = useRef(false)
+  const rafRef        = useRef(null)
 
   const handleHoverChange = useCallback((pos) => setHoverPos(pos), [])
 
-  // Process all 6 grades sequentially using a microtask loop so the
-  // browser stays responsive and tiles appear one-by-one.
+  // ── Initial grade pass ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!sourceCanvas || processingRef.current) return
     processingRef.current = true
     setTiles([])
     setAllDone(false)
+    setOverrides({})
+    setRegraded({})
+    setActiveTileId(null)
 
     let cancelled = false
 
     async function runGrades() {
       for (const preset of presets) {
         if (cancelled) break
-        // Yield to the browser between grades to keep the UI responsive
         await new Promise((r) => requestAnimationFrame(r))
         const gradedCanvas = applyGrade(sourceCanvas, preset)
         const dataUrl      = canvasToDataURL(gradedCanvas)
@@ -53,15 +64,59 @@ export default function GradeGrid({ sourceCanvas, aspectRatio, fileName }) {
     }
   }, [sourceCanvas])
 
-  // ── Download all graded images as a zip (native multi-download fallback) ──
+  // ── Popup: open / close ────────────────────────────────────────────────────
+  const handleTileClick = useCallback((presetId, rect) => {
+    setActiveTileId((prev) => (prev === presetId ? null : presetId))
+    setAnchorRect(rect)
+  }, [])
+
+  const handleClose = useCallback(() => setActiveTileId(null), [])
+
+  // ── Popup: real-time re-grade (rAF throttled) ──────────────────────────────
+  const handleParamChange = useCallback((presetId, newParams) => {
+    // Update overrides immediately (so sliders feel instant)
+    setOverrides((prev) => ({ ...prev, [presetId]: newParams }))
+
+    // Throttle canvas work to one rAF per tile
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      const syntheticPreset = { parameters: newParams }
+      const gradedCanvas = applyGrade(sourceCanvas, syntheticPreset)
+      const dataUrl = canvasToDataURL(gradedCanvas)
+      setRegraded((prev) => ({ ...prev, [presetId]: dataUrl }))
+    })
+  }, [sourceCanvas])
+
+  // ── Popup: reset to original preset ───────────────────────────────────────
+  const handleReset = useCallback((presetId) => {
+    setOverrides((prev) => {
+      const next = { ...prev }
+      delete next[presetId]
+      return next
+    })
+    setRegraded((prev) => {
+      const next = { ...prev }
+      delete next[presetId]
+      return next
+    })
+  }, [])
+
+  // ── Download all ───────────────────────────────────────────────────────────
   const handleDownloadAll = () => {
     tiles.forEach(({ preset, dataUrl }) => {
+      const url = regraded[preset.id] ?? dataUrl
       const a = document.createElement('a')
-      a.href     = dataUrl
+      a.href     = url
       a.download = `cingrade_${preset.id}.jpg`
       a.click()
     })
   }
+
+  // Active preset params (overridden or original)
+  const activePreset   = presets.find((p) => p.id === activeTileId)
+  const activeParams   = activeTileId
+    ? (overrides[activeTileId] ?? activePreset?.parameters)
+    : null
 
   return (
     <motion.div
@@ -70,20 +125,15 @@ export default function GradeGrid({ sourceCanvas, aspectRatio, fileName }) {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35 }}
     >
-      {/* ── Toolbar ───────────────────────────────────────────────────── */}
+      {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-cinema-border">
         <div className="flex items-center gap-3">
-          {/* Subtle progress dots */}
           <div className="flex gap-1">
             {presets.map((p, i) => (
               <motion.div
                 key={p.id}
                 className="w-1.5 h-1.5 rounded-full"
-                animate={{
-                  backgroundColor: i < tiles.length
-                    ? '#F59E0B'
-                    : '#404040',
-                }}
+                animate={{ backgroundColor: i < tiles.length ? '#F59E0B' : '#404040' }}
                 transition={{ duration: 0.25 }}
               />
             ))}
@@ -119,28 +169,31 @@ export default function GradeGrid({ sourceCanvas, aspectRatio, fileName }) {
         </div>
       </div>
 
-      {/* ── 2 × 3 grid ────────────────────────────────────────────────── */}
+      {/* ── Tile grid ───────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="flex flex-wrap gap-4 p-6 max-w-[1600px] mx-auto w-full">
           {presets.map((preset, i) => {
-            const tile = tiles.find((t) => t.preset.id === preset.id)
+            const tile    = tiles.find((t) => t.preset.id === preset.id)
+            const dataUrl = regraded[preset.id] ?? tile?.dataUrl ?? null
             return (
               <GradeTile
                 key={preset.id}
                 preset={preset}
-                dataUrl={tile?.dataUrl ?? null}
+                dataUrl={dataUrl}
                 isLoading={!tile}
                 index={i}
                 aspectRatio={aspectRatio}
                 hoverPos={hoverPos}
                 onHoverChange={handleHoverChange}
+                isActive={activeTileId === preset.id}
+                onTileClick={handleTileClick}
               />
             )
           })}
         </div>
       </div>
 
-      {/* ── Footer note ───────────────────────────────────────────────── */}
+      {/* ── Footer note ─────────────────────────────────────────────────────── */}
       {allDone && (
         <motion.p
           className="text-center text-cinema-subtle text-xs pb-5"
@@ -151,6 +204,21 @@ export default function GradeGrid({ sourceCanvas, aspectRatio, fileName }) {
           All processing is local — your image never leaves this browser tab.
         </motion.p>
       )}
+
+      {/* ── Grade popup ─────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {activeTileId && activeParams && anchorRect && (
+          <GradePopup
+            key={activeTileId}
+            preset={activePreset}
+            params={activeParams}
+            anchorRect={anchorRect}
+            onParamChange={(newParams) => handleParamChange(activeTileId, newParams)}
+            onReset={() => handleReset(activeTileId)}
+            onClose={handleClose}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

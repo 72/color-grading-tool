@@ -55,3 +55,7 @@ coverage/
 # Misc
 *.pem
 .vercel
+
+# Local session notes
+SESSION_NOTES.md
+site-generation-prompt.md
