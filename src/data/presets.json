@@ -1,0 +1,146 @@
+[
+  {
+    "id": "grade_naturalism",
+    "name": "Naturalism",
+    "cinematic_term": "Linear / Faithful Reproduction / Neutral",
+    "technical_summary": "Clean invisible grade. Prioritizes D65 white balance and linear contrast. Validates skin tones against the vectorscope skin-tone line.",
+    "parameters": {
+      "exposure": {
+        "global_bias": 0.0,
+        "contrast_ratio": 1.0,
+        "black_point": 0.0
+      },
+      "saturation": {
+        "global_level": 1.0
+      },
+      "color_wheels": {
+        "lift": {
+          "hue_angle": 0,
+          "saturation_intensity": 0.0,
+          "luminance": 0.0
+        },
+        "gamma": {
+          "hue_angle": 0,
+          "saturation_intensity": 0.0,
+          "luminance": 0.0
+        },
+        "gain": {
+          "hue_angle": 0,
+          "saturation_intensity": 0.0,
+          "luminance": 0.0
+        }
+      },
+      "special_effects": {
+        "film_grain": "none"
+      }
+    }
+  },
+  {
+    "id": "grade_stark_clinical",
+    "name": "Stark Clinical",
+    "cinematic_term": "Low-Chroma High-Key / Arctic Wash",
+    "technical_summary": "A clean, cold, and desaturated look with high-key exposure. Minimal color separation, focusing on whites and cool grays. Inspired by stark, snowy crime dramas.",
+    "parameters": {
+      "exposure": {
+        "global_bias": 0.3,
+        "contrast_ratio": 1.1,
+        "black_point": 0.0
+      },
+      "saturation": {
+        "global_level": 0.65
+      },
+      "color_wheels": {
+        "lift": {
+          "hue_angle": 210,
+          "saturation_intensity": 0.05,
+          "luminance": 0.0
+        },
+        "gamma": {
+          "hue_angle": 200,
+          "saturation_intensity": 0.1,
+          "luminance": 0.0
+        },
+        "gain": {
+          "hue_angle": 190,
+          "saturation_intensity": 0.05,
+          "luminance": 0.0
+        }
+      },
+      "special_effects": {
+        "film_grain": "none"
+      }
+    }
+  },
+  {
+    "id": "grade_primary_clean",
+    "name": "Primary Clean",
+    "cinematic_term": "Technicolor Modern / Clinical Saturation",
+    "technical_summary": "Highly accurate but punchy primaries with very clean, neutral whites. High tonal clarity and balanced midtones. Inspired by mid-century sci-fi realism.",
+    "parameters": {
+      "exposure": {
+        "global_bias": 0.0,
+        "contrast_ratio": 1.25,
+        "black_point": -0.01
+      },
+      "saturation": {
+        "global_level": 1.15
+      },
+      "color_wheels": {
+        "lift": {
+          "hue_angle": 0,
+          "saturation_intensity": 0.0,
+          "luminance": -0.02
+        },
+        "gamma": {
+          "hue_angle": 0,
+          "saturation_intensity": 0.0,
+          "luminance": 0.0
+        },
+        "gain": {
+          "hue_angle": 0,
+          "saturation_intensity": 0.0,
+          "luminance": 0.0
+        }
+      },
+      "special_effects": {
+        "film_grain": "none"
+      }
+    }
+  },
+  {
+    "id": "grade_dust_bowl",
+    "name": "Nostalgic Sepia",
+    "cinematic_term": "Digital Tinting / Period Wash",
+    "technical_summary": "A golden-yellow monolithic wash that desaturates greens and blues. Milky shadows with lifted blacks provide a nostalgic, filmic haze. Inspired by Depression-era period pieces.",
+    "parameters": {
+      "exposure": {
+        "global_bias": 0.1,
+        "contrast_ratio": 1.05,
+        "black_point": 0.02
+      },
+      "saturation": {
+        "global_level": 0.85
+      },
+      "color_wheels": {
+        "lift": {
+          "hue_angle": 45,
+          "saturation_intensity": 0.15,
+          "luminance": 0.02
+        },
+        "gamma": {
+          "hue_angle": 50,
+          "saturation_intensity": 0.25,
+          "luminance": 0.0
+        },
+        "gain": {
+          "hue_angle": 55,
+          "saturation_intensity": 0.1,
+          "luminance": -0.05
+        }
+      },
+      "special_effects": {
+        "highlight_bloom": 0.25
+      }
+    }
+  }
+]
