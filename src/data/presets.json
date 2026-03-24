@@ -14,25 +14,19 @@
         "global_level": 1.0
       },
       "color_wheels": {
-        "lift": {
-          "hue_angle": 0,
-          "saturation_intensity": 0.0,
-          "luminance": 0.0
-        },
-        "gamma": {
-          "hue_angle": 0,
-          "saturation_intensity": 0.0,
-          "luminance": 0.0
-        },
-        "gain": {
-          "hue_angle": 0,
-          "saturation_intensity": 0.0,
-          "luminance": 0.0
-        }
+        "lift": { "hue_angle": 0, "saturation_intensity": 0.0, "luminance": 0.0 },
+        "gamma": { "hue_angle": 0, "saturation_intensity": 0.0, "luminance": 0.0 },
+        "gain": { "hue_angle": 0, "saturation_intensity": 0.0, "luminance": 0.0 }
       },
-      "special_effects": {
-        "film_grain": "none"
-      }
+      "special_effects": { "film_grain": "none" },
+      "tone_curves": {
+        "enabled": false,
+        "master": [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "red":    [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "green":  [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "blue":   [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }]
+      },
+      "hsl_targeting": []
     }
   },
   {
@@ -50,25 +44,19 @@
         "global_level": 0.65
       },
       "color_wheels": {
-        "lift": {
-          "hue_angle": 210,
-          "saturation_intensity": 0.05,
-          "luminance": 0.0
-        },
-        "gamma": {
-          "hue_angle": 200,
-          "saturation_intensity": 0.1,
-          "luminance": 0.0
-        },
-        "gain": {
-          "hue_angle": 190,
-          "saturation_intensity": 0.05,
-          "luminance": 0.0
-        }
+        "lift":  { "hue_angle": 210, "saturation_intensity": 0.05, "luminance": 0.0 },
+        "gamma": { "hue_angle": 200, "saturation_intensity": 0.1,  "luminance": 0.0 },
+        "gain":  { "hue_angle": 190, "saturation_intensity": 0.05, "luminance": 0.0 }
       },
-      "special_effects": {
-        "film_grain": "none"
-      }
+      "special_effects": { "film_grain": "none" },
+      "tone_curves": {
+        "enabled": false,
+        "master": [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "red":    [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "green":  [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "blue":   [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }]
+      },
+      "hsl_targeting": []
     }
   },
   {
@@ -86,25 +74,19 @@
         "global_level": 1.15
       },
       "color_wheels": {
-        "lift": {
-          "hue_angle": 0,
-          "saturation_intensity": 0.0,
-          "luminance": -0.02
-        },
-        "gamma": {
-          "hue_angle": 0,
-          "saturation_intensity": 0.0,
-          "luminance": 0.0
-        },
-        "gain": {
-          "hue_angle": 0,
-          "saturation_intensity": 0.0,
-          "luminance": 0.0
-        }
+        "lift":  { "hue_angle": 0, "saturation_intensity": 0.0, "luminance": -0.02 },
+        "gamma": { "hue_angle": 0, "saturation_intensity": 0.0, "luminance": 0.0 },
+        "gain":  { "hue_angle": 0, "saturation_intensity": 0.0, "luminance": 0.0 }
       },
-      "special_effects": {
-        "film_grain": "none"
-      }
+      "special_effects": { "film_grain": "none" },
+      "tone_curves": {
+        "enabled": true,
+        "master": [{ "x": 0, "y": 0 }, { "x": 0.25, "y": 0.2 }, { "x": 0.75, "y": 0.82 }, { "x": 1, "y": 1 }],
+        "red":    [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "green":  [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "blue":   [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }]
+      },
+      "hsl_targeting": []
     }
   },
   {
@@ -122,25 +104,36 @@
         "global_level": 0.85
       },
       "color_wheels": {
-        "lift": {
-          "hue_angle": 45,
-          "saturation_intensity": 0.15,
-          "luminance": 0.02
-        },
-        "gamma": {
-          "hue_angle": 50,
-          "saturation_intensity": 0.25,
-          "luminance": 0.0
-        },
-        "gain": {
-          "hue_angle": 55,
-          "saturation_intensity": 0.1,
-          "luminance": -0.05
-        }
+        "lift":  { "hue_angle": 45, "saturation_intensity": 0.15, "luminance": 0.02 },
+        "gamma": { "hue_angle": 50, "saturation_intensity": 0.25, "luminance": 0.0 },
+        "gain":  { "hue_angle": 55, "saturation_intensity": 0.1,  "luminance": -0.05 }
       },
-      "special_effects": {
-        "highlight_bloom": 0.25
-      }
+      "special_effects": { "highlight_bloom": 0.25 },
+      "tone_curves": {
+        "enabled": false,
+        "master": [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "red":    [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "green":  [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+        "blue":   [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }]
+      },
+      "hsl_targeting": [
+        {
+          "target_hue": 120,
+          "hue_range": 80,
+          "hue_shift": 10,
+          "sat_scale": 0.7,
+          "lum_offset": -0.03,
+          "softness": 30
+        },
+        {
+          "target_hue": 240,
+          "hue_range": 80,
+          "hue_shift": 0,
+          "sat_scale": 0.5,
+          "lum_offset": 0,
+          "softness": 30
+        }
+      ]
     }
   }
 ]

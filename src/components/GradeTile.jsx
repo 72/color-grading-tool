@@ -1,42 +1,65 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 
-const LENS_SIZE = 144  // lens diameter in px
-const ZOOM      = 2.5
+const LENS_SIZE = 144
+const ZOOM = 2.5
 
 /**
+ * A single graded-image tile.
+ *
+ * The <canvas> element lives in JSX (React manages its lifecycle).
+ * GradeGrid receives the canvas ref via onCanvasRef and uses it
+ * as a WebGPU render target.
+ *
  * Props:
- *   preset        — preset metadata
- *   dataUrl       — graded JPEG data-URL
- *   isLoading     — show shimmer while processing
- *   index         — stagger delay index
- *   aspectRatio   — width/height of the source image
- *   hoverPos      — { xRatio, yRatio } | null  (shared across all tiles)
- *   onHoverChange — (pos | null) => void
- *   isActive      — true when the popup is open for this tile
- *   onTileClick   — (presetId, DOMRect) => void
+ *   preset         — preset metadata
+ *   renderer       — WebGPURenderer instance
+ *   tileHandle     — GPU tile handle (null while loading)
+ *   isLoading      — true until the GPU has rendered this tile
+ *   index          — stagger animation index
+ *   aspectRatio    — source image width/height
+ *   sourceWidth    — source image pixel width
+ *   sourceHeight   — source image pixel height
+ *   hoverPos       — { xRatio, yRatio } | null (shared across tiles)
+ *   onHoverChange  — (pos | null) => void
+ *   isActive       — true when popup is open for this tile
+ *   onTileClick    — (presetId, DOMRect) => void
+ *   onCanvasRef    — (presetId, canvasEl | null) => void
  */
 export default function GradeTile({
-  preset, dataUrl, isLoading, index, aspectRatio, hoverPos, onHoverChange,
-  isActive, onTileClick,
+  preset, renderer, tileHandle, isLoading, index,
+  aspectRatio, sourceWidth, sourceHeight,
+  hoverPos, onHoverChange, isActive, onTileClick,
+  onCanvasRef,
 }) {
   const [isHovered, setIsHovered] = useState(false)
-  const imageRef = useRef(null)
+  const imageAreaRef = useRef(null)
+  const lensCanvasRef = useRef(null)
+  const gpuCanvasRef = useRef(null)
 
+  // ── Forward GPU canvas ref to parent (stable callback) ────────────────────
+  const setGpuCanvasRef = useCallback((el) => {
+    gpuCanvasRef.current = el
+    onCanvasRef?.(preset.id, el)
+  }, [preset.id, onCanvasRef])
+
+  // ── Download (export from GPU canvas → JPEG) ─────────────────────────────
   const handleDownload = (e) => {
     e.stopPropagation()
-    if (!dataUrl) return
+    if (!tileHandle || !renderer) return
+    const dataUrl = renderer.exportToDataURL(tileHandle)
     const a = document.createElement('a')
-    a.href     = dataUrl
-    a.download = `${preset.id}.jpg`
+    a.href = dataUrl
+    a.download = `cingrade_${preset.id}.jpg`
     a.click()
   }
 
+  // ── Mouse tracking ────────────────────────────────────────────────────────
   const handleMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect()
     onHoverChange({
       xRatio: (e.clientX - rect.left) / rect.width,
-      yRatio: (e.clientY - rect.top)  / rect.height,
+      yRatio: (e.clientY - rect.top) / rect.height,
     })
   }
 
@@ -46,34 +69,49 @@ export default function GradeTile({
   }
 
   const handleTileClick = (e) => {
-    // Don't open popup when clicking the download button
     if (e.target.closest('button')) return
     const rect = e.currentTarget.getBoundingClientRect()
     onTileClick?.(preset.id, rect)
   }
 
-  // ── Lens ──────────────────────────────────────────────────────────────
-  const imgW = imageRef.current?.offsetWidth  ?? 0
-  const imgH = imageRef.current?.offsetHeight ?? 0
+  // ── Lens: draw zoomed portion from the GPU canvas ─────────────────────────
+  const containerEl = imageAreaRef.current
+  const containerW = containerEl?.offsetWidth ?? 0
+  const containerH = containerEl?.offsetHeight ?? 0
+  const gpuCanvas = gpuCanvasRef.current
 
-  const showLens = !!hoverPos && !!dataUrl && !isLoading && imgW > 0
+  const showLens = !!hoverPos && !!gpuCanvas && !isLoading && containerW > 0
 
-  const lensX = showLens ? hoverPos.xRatio * imgW : 0
-  const lensY = showLens ? hoverPos.yRatio * imgH : 0
+  useEffect(() => {
+    if (!showLens || !lensCanvasRef.current || !gpuCanvas) return
 
-  // bgH derived from aspectRatio so the zoomed image is never stretched
-  const bgW   = imgW * ZOOM
-  const bgH   = bgW / aspectRatio
-  const yZoom = imgH > 0 ? bgH / imgH : ZOOM
+    const lensCtx = lensCanvasRef.current.getContext('2d')
+    if (!lensCtx) return
 
-  const bgX = -(lensX * ZOOM  - LENS_SIZE / 2)
-  const bgY = -(lensY * yZoom - LENS_SIZE / 2)
+    const scaleX = gpuCanvas.width / containerW
+    const scaleY = gpuCanvas.height / containerH
+    const srcCenterX = hoverPos.xRatio * gpuCanvas.width
+    const srcCenterY = hoverPos.yRatio * gpuCanvas.height
+    const srcW = (LENS_SIZE / ZOOM) * scaleX
+    const srcH = (LENS_SIZE / ZOOM) * scaleY
 
-  // Landscape (aspectRatio > 1): cap width at 720px, height derives from ratio.
-  // Portrait (aspectRatio < 1): cap width at 320px, height derives from ratio
-  //   (e.g. 9:16 → 320px wide, ~568px tall).
-  // Square (aspectRatio === 1): rendered as a 320×320 square.
+    // Clamp source rect to canvas bounds to avoid distortion at edges
+    const srcX = Math.max(0, Math.min(gpuCanvas.width - srcW, srcCenterX - srcW / 2))
+    const srcY = Math.max(0, Math.min(gpuCanvas.height - srcH, srcCenterY - srcH / 2))
+
+    lensCtx.clearRect(0, 0, LENS_SIZE, LENS_SIZE)
+    lensCtx.drawImage(
+      gpuCanvas,
+      srcX, srcY, srcW, srcH,
+      0, 0, LENS_SIZE, LENS_SIZE,
+    )
+  }, [showLens, hoverPos, gpuCanvas, containerW, containerH])
+
+  // ── Tile sizing ───────────────────────────────────────────────────────────
   const tileWidth = aspectRatio > 1 ? 'min(720px, 100%)' : '320px'
+
+  const lensX = showLens ? hoverPos.xRatio * containerW : 0
+  const lensY = showLens ? hoverPos.yRatio * containerH : 0
 
   return (
     <motion.div
@@ -91,20 +129,29 @@ export default function GradeTile({
         ease: [0.25, 0.46, 0.45, 0.94],
       }}
     >
-      {/* ── Image (lens is clipped here) ─────────────────────────────── */}
+      {/* ── Image area ───────────────────────────────────────────────────── */}
       <div
-        ref={imageRef}
+        ref={imageAreaRef}
         className="relative overflow-hidden rounded-t-xl"
         style={{
           aspectRatio,
-          cursor: isHovered && dataUrl && !isLoading ? 'none' : 'default',
+          cursor: isHovered && !isLoading ? 'none' : 'default',
         }}
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={handleMouseLeave}
       >
-        {isLoading || !dataUrl ? (
-          <div className="absolute inset-0 bg-cinema-card">
+        {/* GPU canvas — always in the DOM, rendered by WebGPU */}
+        <canvas
+          ref={setGpuCanvasRef}
+          width={sourceWidth || 1}
+          height={sourceHeight || 1}
+          style={{ width: '100%', height: '100%', display: 'block' }}
+        />
+
+        {/* Loading shimmer — overlays the canvas until GPU render completes */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-cinema-card z-10">
             <div
               className="absolute inset-0"
               style={{
@@ -114,13 +161,6 @@ export default function GradeTile({
               }}
             />
           </div>
-        ) : (
-          <img
-            src={dataUrl}
-            alt={preset.name}
-            className="w-full h-full object-cover"
-            draggable={false}
-          />
         )}
 
         {/* Magnifier lens */}
@@ -128,25 +168,29 @@ export default function GradeTile({
           <div
             style={{
               position: 'absolute',
-              width:  LENS_SIZE,
+              width: LENS_SIZE,
               height: LENS_SIZE,
               borderRadius: '50%',
               border: '2px solid rgba(255,255,255,0.7)',
               boxShadow: '0 0 0 1px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.55)',
-              backgroundImage: `url(${dataUrl})`,
-              backgroundSize: `${bgW}px ${bgH}px`,
-              backgroundPosition: `${bgX}px ${bgY}px`,
-              backgroundRepeat: 'no-repeat',
+              overflow: 'hidden',
               left: lensX - LENS_SIZE / 2,
-              top:  lensY - LENS_SIZE / 2,
+              top: lensY - LENS_SIZE / 2,
               pointerEvents: 'none',
               zIndex: 20,
             }}
-          />
+          >
+            <canvas
+              ref={lensCanvasRef}
+              width={LENS_SIZE}
+              height={LENS_SIZE}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </div>
         )}
       </div>
 
-      {/* ── Metadata (below the image) ───────────────────────────────── */}
+      {/* ── Metadata bar ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-t border-cinema-border">
         <div className="min-w-0">
           <p className="text-white text-sm font-medium leading-tight truncate">
@@ -161,14 +205,14 @@ export default function GradeTile({
           onClick={handleDownload}
           className={[
             'flex items-center justify-center w-7 h-7 rounded-lg text-white transition-colors shrink-0',
-            dataUrl ? 'bg-white/10 hover:bg-white/20' : 'bg-white/5 opacity-40 cursor-default',
+            !isLoading ? 'bg-white/10 hover:bg-white/20' : 'bg-white/5 opacity-40 cursor-default',
           ].join(' ')}
-          whileTap={dataUrl ? { scale: 0.9 } : {}}
+          whileTap={!isLoading ? { scale: 0.9 } : {}}
           title="Save image"
         >
           <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="M8 2v8m0 0L5 7m3 3l3-3" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 13h12" strokeLinecap="round"/>
+            <path d="M8 2v8m0 0L5 7m3 3l3-3" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2 13h12" strokeLinecap="round" />
           </svg>
         </motion.button>
       </div>

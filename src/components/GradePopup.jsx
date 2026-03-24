@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import ToneCurveEditor from './ToneCurveEditor'
+import HSLPanel from './HSLPanel'
 
 // ── Path helpers ──────────────────────────────────────────────────────────────
 
@@ -22,9 +24,9 @@ function setByPath(obj, path, value) {
 // ── Slider config ─────────────────────────────────────────────────────────────
 
 const EXPOSURE_SLIDERS = [
-  { label: 'Bias (EV)',   path: 'exposure.global_bias',    min: -1.5, max: 1.5,  step: 0.01 },
-  { label: 'Contrast',   path: 'exposure.contrast_ratio', min: 0.5,  max: 2.0,  step: 0.01 },
-  { label: 'Black Point',path: 'exposure.black_point',    min: -0.3, max: 0.3,  step: 0.005 },
+  { label: 'Bias (EV)',    path: 'exposure.global_bias',    min: -1.5, max: 1.5, step: 0.01 },
+  { label: 'Contrast',     path: 'exposure.contrast_ratio', min: 0.5,  max: 2.0, step: 0.01 },
+  { label: 'Black Point',  path: 'exposure.black_point',    min: -0.3, max: 0.3, step: 0.005 },
 ]
 
 const SAT_SLIDERS = [
@@ -38,13 +40,21 @@ const WHEEL_SECTIONS = [
 ]
 
 const WHEEL_SLIDERS = [
-  { label: 'Hue',        suffix: 'hue_angle',            min: 0,    max: 360,  step: 1   },
-  { label: 'Intensity',  suffix: 'saturation_intensity', min: 0,    max: 1,    step: 0.01 },
-  { label: 'Luminance',  suffix: 'luminance',            min: -0.5, max: 0.5,  step: 0.005 },
+  { label: 'Hue',       suffix: 'hue_angle',            min: 0,    max: 360, step: 1   },
+  { label: 'Intensity', suffix: 'saturation_intensity', min: 0,    max: 1,   step: 0.01 },
+  { label: 'Luminance', suffix: 'luminance',            min: -0.5, max: 0.5, step: 0.005 },
 ]
 
 const EFFECT_SLIDERS = [
-  { label: 'Bloom',      path: 'special_effects.highlight_bloom', min: 0, max: 1, step: 0.01 },
+  { label: 'Bloom', path: 'special_effects.highlight_bloom', min: 0, max: 1, step: 0.01 },
+]
+
+// ── Top-level tabs ────────────────────────────────────────────────────────────
+
+const MAIN_TABS = [
+  { key: 'grade',  label: 'Grade'  },
+  { key: 'curves', label: 'Curves' },
+  { key: 'hsl',    label: 'HSL'    },
 ]
 
 // ── SliderRow ─────────────────────────────────────────────────────────────────
@@ -73,8 +83,6 @@ function SliderRow({ label, value, min, max, step, onChange }) {
   )
 }
 
-// ── Section header ────────────────────────────────────────────────────────────
-
 function SectionLabel({ children }) {
   return (
     <p className="text-cinema-subtle text-[10px] font-semibold uppercase tracking-widest mb-2 mt-4 first:mt-0">
@@ -85,25 +93,17 @@ function SectionLabel({ children }) {
 
 // ── GradePopup ────────────────────────────────────────────────────────────────
 
-/**
- * Props:
- *   params       — current parameter object (mutable copy from overrides)
- *   preset       — original preset (for title + reset)
- *   anchorRect   — DOMRect of the clicked tile
- *   onParamChange — (newParams) => void
- *   onReset      — () => void
- *   onClose      — () => void
- */
 export default function GradePopup({ params, preset, anchorRect, onParamChange, onReset, onClose }) {
-  const [copied, setCopied]       = useState(false)
-  const [wheelTab, setWheelTab]   = useState(0)   // 0=Shadows, 1=Midtones, 2=Highlights
-  const popupRef                  = useRef(null)
-  const dragRef                   = useRef(null)   // { startX, startY, origX, origY }
+  const [copied, setCopied]         = useState(false)
+  const [mainTab, setMainTab]       = useState('grade')
+  const [wheelTab, setWheelTab]     = useState(0)
+  const popupRef                    = useRef(null)
+  const dragRef                     = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
-  const POPUP_W                   = 520
-  const POPUP_MAX_H               = 520
+  const POPUP_W                     = 520
+  const POPUP_MAX_H                 = 580
 
-  // ── Initial position: below the tile, clamped to viewport ────────────────
+  // ── Initial position ──────────────────────────────────────────────────────
   const initTop  = anchorRect.bottom + 8
   const initLeft = Math.max(12, Math.min(
     anchorRect.left + anchorRect.width / 2 - POPUP_W / 2,
@@ -113,7 +113,6 @@ export default function GradePopup({ params, preset, anchorRect, onParamChange, 
 
   // ── Drag logic ────────────────────────────────────────────────────────────
   const handleHeaderPointerDown = (e) => {
-    // Only drag on primary button; ignore clicks on the close button
     if (e.button !== 0 || e.target.closest('button')) return
     e.preventDefault()
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y }
@@ -138,9 +137,7 @@ export default function GradePopup({ params, preset, anchorRect, onParamChange, 
   // ── Close on outside click ────────────────────────────────────────────────
   useEffect(() => {
     function onPointerDown(e) {
-      if (popupRef.current && !popupRef.current.contains(e.target)) {
-        onClose()
-      }
+      if (popupRef.current && !popupRef.current.contains(e.target)) onClose()
     }
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)
@@ -153,9 +150,17 @@ export default function GradePopup({ params, preset, anchorRect, onParamChange, 
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  // ── Slider change helper ──────────────────────────────────────────────────
+  // ── Change helpers ────────────────────────────────────────────────────────
   const handleChange = useCallback((path, value) => {
     onParamChange(setByPath(params, path, value))
+  }, [params, onParamChange])
+
+  const handleCurvesChange = useCallback((newCurves) => {
+    onParamChange({ ...params, tone_curves: newCurves })
+  }, [params, onParamChange])
+
+  const handleHSLChange = useCallback((newHSL) => {
+    onParamChange({ ...params, hsl_targeting: newHSL })
   }, [params, onParamChange])
 
   // ── Copy JSON ─────────────────────────────────────────────────────────────
@@ -193,89 +198,123 @@ export default function GradePopup({ params, preset, anchorRect, onParamChange, 
           className="flex items-center justify-center w-6 h-6 rounded-md text-cinema-muted hover:text-white hover:bg-white/10 transition-colors"
         >
           <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round"/>
+            <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
           </svg>
         </button>
       </div>
 
-      {/* Sliders */}
-      <div className="px-4 py-3 overflow-y-auto" style={{ maxHeight: POPUP_MAX_H - 96 }}>
-        {/* Exposure */}
-        <SectionLabel>Exposure</SectionLabel>
-        <div className="flex flex-col gap-2">
-          {EXPOSURE_SLIDERS.map(({ label, path, min, max, step }) => (
-            <SliderRow
-              key={path}
-              label={label}
-              value={getByPath(params, path) ?? 0}
-              min={min} max={max} step={step}
-              onChange={(v) => handleChange(path, v)}
-            />
-          ))}
-        </div>
+      {/* ── Main tab bar ──────────────────────────────────────────────────── */}
+      <div className="flex gap-0 border-b border-cinema-border">
+        {MAIN_TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setMainTab(key)}
+            className={[
+              'flex-1 py-2.5 text-[11px] font-medium transition-colors',
+              mainTab === key
+                ? 'text-cinema-amber border-b-2 border-cinema-amber -mb-px'
+                : 'text-cinema-muted hover:text-white',
+            ].join(' ')}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-        {/* Saturation */}
-        <SectionLabel>Saturation</SectionLabel>
-        <div className="flex flex-col gap-2">
-          {SAT_SLIDERS.map(({ label, path, min, max, step }) => (
-            <SliderRow
-              key={path}
-              label={label}
-              value={getByPath(params, path) ?? 1}
-              min={min} max={max} step={step}
-              onChange={(v) => handleChange(path, v)}
-            />
-          ))}
-        </div>
+      {/* ── Tab content ───────────────────────────────────────────────────── */}
+      <div className="px-4 py-3 overflow-y-auto" style={{ maxHeight: POPUP_MAX_H - 140 }}>
+        {mainTab === 'grade' && (
+          <>
+            {/* Exposure */}
+            <SectionLabel>Exposure</SectionLabel>
+            <div className="flex flex-col gap-2">
+              {EXPOSURE_SLIDERS.map(({ label, path, min, max, step }) => (
+                <SliderRow
+                  key={path}
+                  label={label}
+                  value={getByPath(params, path) ?? 0}
+                  min={min} max={max} step={step}
+                  onChange={(v) => handleChange(path, v)}
+                />
+              ))}
+            </div>
 
-        {/* Color Wheels */}
-        <SectionLabel>Color Wheels</SectionLabel>
-        {/* Tab bar */}
-        <div className="flex gap-1 mb-3 bg-cinema-card rounded-lg p-0.5">
-          {WHEEL_SECTIONS.map(({ label }, i) => (
-            <button
-              key={label}
-              onClick={() => setWheelTab(i)}
-              className={[
-                'flex-1 py-1.5 rounded-md text-[11px] font-medium transition-colors',
-                wheelTab === i
-                  ? 'bg-[#1e1e1e] text-white'
-                  : 'text-cinema-muted hover:text-white',
-              ].join(' ')}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {/* Active tab sliders */}
-        <div className="flex flex-col gap-2">
-          {WHEEL_SLIDERS.map(({ label: sLabel, suffix, min, max, step }) => {
-            const path = `${WHEEL_SECTIONS[wheelTab].prefix}.${suffix}`
-            return (
-              <SliderRow
-                key={path}
-                label={sLabel}
-                value={getByPath(params, path) ?? 0}
-                min={min} max={max} step={step}
-                onChange={(v) => handleChange(path, v)}
-              />
-            )
-          })}
-        </div>
+            {/* Saturation */}
+            <SectionLabel>Saturation</SectionLabel>
+            <div className="flex flex-col gap-2">
+              {SAT_SLIDERS.map(({ label, path, min, max, step }) => (
+                <SliderRow
+                  key={path}
+                  label={label}
+                  value={getByPath(params, path) ?? 1}
+                  min={min} max={max} step={step}
+                  onChange={(v) => handleChange(path, v)}
+                />
+              ))}
+            </div>
 
-        {/* Effects */}
-        <SectionLabel>Effects</SectionLabel>
-        <div className="flex flex-col gap-2">
-          {EFFECT_SLIDERS.map(({ label, path, min, max, step }) => (
-            <SliderRow
-              key={path}
-              label={label}
-              value={getByPath(params, path) ?? 0}
-              min={min} max={max} step={step}
-              onChange={(v) => handleChange(path, v)}
-            />
-          ))}
-        </div>
+            {/* Colour Wheels */}
+            <SectionLabel>Color Wheels</SectionLabel>
+            <div className="flex gap-1 mb-3 bg-cinema-card rounded-lg p-0.5">
+              {WHEEL_SECTIONS.map(({ label }, i) => (
+                <button
+                  key={label}
+                  onClick={() => setWheelTab(i)}
+                  className={[
+                    'flex-1 py-1.5 rounded-md text-[11px] font-medium transition-colors',
+                    wheelTab === i
+                      ? 'bg-[#1e1e1e] text-white'
+                      : 'text-cinema-muted hover:text-white',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col gap-2">
+              {WHEEL_SLIDERS.map(({ label: sLabel, suffix, min, max, step }) => {
+                const path = `${WHEEL_SECTIONS[wheelTab].prefix}.${suffix}`
+                return (
+                  <SliderRow
+                    key={path}
+                    label={sLabel}
+                    value={getByPath(params, path) ?? 0}
+                    min={min} max={max} step={step}
+                    onChange={(v) => handleChange(path, v)}
+                  />
+                )
+              })}
+            </div>
+
+            {/* Effects */}
+            <SectionLabel>Effects</SectionLabel>
+            <div className="flex flex-col gap-2">
+              {EFFECT_SLIDERS.map(({ label, path, min, max, step }) => (
+                <SliderRow
+                  key={path}
+                  label={label}
+                  value={getByPath(params, path) ?? 0}
+                  min={min} max={max} step={step}
+                  onChange={(v) => handleChange(path, v)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {mainTab === 'curves' && (
+          <ToneCurveEditor
+            toneCurves={params.tone_curves}
+            onChange={handleCurvesChange}
+          />
+        )}
+
+        {mainTab === 'hsl' && (
+          <HSLPanel
+            hslTargeting={params.hsl_targeting}
+            onChange={handleHSLChange}
+          />
+        )}
       </div>
 
       {/* Footer */}
@@ -308,8 +347,8 @@ export default function GradePopup({ params, preset, anchorRect, onParamChange, 
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cinema-card border border-cinema-border hover:border-cinema-muted text-white text-xs font-medium transition-colors"
           >
             <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <rect x="5" y="5" width="8" height="9" rx="1.5" strokeLinejoin="round"/>
-              <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1" strokeLinecap="round"/>
+              <rect x="5" y="5" width="8" height="9" rx="1.5" strokeLinejoin="round" />
+              <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1" strokeLinecap="round" />
             </svg>
             Copy JSON
           </button>
